@@ -17,6 +17,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth-status"
+import { createInvoice } from "@/lib/db/invoices"
 
 // Define the form schema
 const formSchema = z.object({
@@ -49,7 +51,9 @@ type FormValues = z.infer<typeof formSchema>
 
 export default function NewInvoicePage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -115,11 +119,39 @@ export default function NewInvoicePage() {
   }
 
   // Handle form submission
-  function onSubmit(data: FormValues) {
-    console.log(data)
-    // Here you would typically save the invoice to your database
-    // Then redirect to the invoices list
-    router.push("/invoices")
+  async function onSubmit(data: FormValues) {
+    if (!user) {
+      console.error("No user found")
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      // Transform form data to match the API
+      const invoiceData = {
+        client_name: data.clientName,
+        client_email: data.clientEmail,
+        invoice_date: format(data.invoiceDate, 'yyyy-MM-dd'),
+        due_date: format(data.dueDate, 'yyyy-MM-dd'),
+        items: data.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+        tax_rate: data.taxRate,
+        notes: data.notes,
+        payment_methods: data.paymentMethods,
+      }
+
+      await createInvoice(invoiceData, user)
+      router.push("/invoices")
+    } catch (error) {
+      console.error("Failed to create invoice:", error)
+      // You might want to show a toast notification here
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Format currency
@@ -448,7 +480,9 @@ export default function NewInvoicePage() {
             <Button type="button" variant="outline" onClick={() => router.push("/invoices")}>
               Cancel
             </Button>
-            <Button type="submit">Save Invoice</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Save Invoice"}
+            </Button>
           </div>
         </form>
       </Form>
