@@ -23,6 +23,7 @@ export interface Invoice {
   total: number
   balance_due: number
   notes?: string
+  stripe_payment_link?: string
   payment_methods?: {
     zelle?: boolean
     venmo?: boolean
@@ -65,6 +66,7 @@ export interface UpdateInvoiceInput {
   }>
   tax_rate?: number
   notes?: string
+  stripe_payment_link?: string
   payment_methods?: {
     zelle?: boolean
     venmo?: boolean

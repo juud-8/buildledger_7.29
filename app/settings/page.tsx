@@ -1,10 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { Save, Upload, Loader2 } from "lucide-react"
+import { Save, Upload } from "lucide-react"
+import { useAuth } from "@/components/auth-status"
+import { useToast } from "@/hooks/use-toast"
+import { getBusinessForUser, upsertBusiness, uploadLogo } from "@/lib/db/business
+
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +37,7 @@ const businessFormSchema = z.object({
   currency: z.string().default("USD"),
   dateFormat: z.string().default("MM/DD/YYYY"),
   logo: z.string().optional(),
+  logoFile: z.any().optional(), // For file upload
 })
 
 const accountFormSchema = z
@@ -74,25 +79,64 @@ const paymentMethodsFormSchema = z.object({
 })
 
 export default function SettingsPage() {
+  const { user } = useAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("business")
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Initialize the business form
   const businessForm = useForm<z.infer<typeof businessFormSchema>>({
     resolver: zodResolver(businessFormSchema),
     defaultValues: {
-      businessName: "TradeTab",
-      email: "contact@tradetab.com",
-      phone: "(412) 555-1234",
-      address: "123 Main St, Pittsburgh, PA 15222",
-      taxId: "12-3456789",
-      defaultTaxRate: 7.5,
+      businessName: "",
+      email: "",
+      phone: "",
+      address: "",
+      taxId: "",
+      defaultTaxRate: 0,
       currency: "USD",
       dateFormat: "MM/DD/YYYY",
       logo: "",
+      logoFile: undefined,
     },
   })
+
+  // Load business data on mount
+  useEffect(() => {
+    const loadBusiness = async () => {
+      if (!user) return
+      
+      try {
+        const business = await getBusinessForUser(user.id)
+        if (business) {
+          businessForm.reset({
+            businessName: business.business_name,
+            email: business.email,
+            phone: business.phone || "",
+            address: business.address || "",
+            taxId: business.tax_id || "",
+            defaultTaxRate: business.default_tax_rate,
+            currency: business.currency,
+            dateFormat: business.date_format,
+            logo: business.logo_url || "",
+            logoFile: undefined,
+          })
+        }
+      } catch (error) {
+        console.error("Failed to load business data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load business data. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadBusiness()
+  }, [user, businessForm, toast])
 
   // Initialize the account form
   const accountForm = useForm<z.infer<typeof accountFormSchema>>({
@@ -123,10 +167,13 @@ export default function SettingsPage() {
   })
 
   // Handle form submission
-  async function onSubmit(data: any) {
+  async function onSubmit(data: z.infer<typeof businessFormSchema>) {
+    if (!user) return
+    
     setIsSaving(true)
     
     try {
+
       console.log("Form data:", data)
 
       // Simulate API call
@@ -141,6 +188,51 @@ export default function SettingsPage() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update settings",
+
+      let logoUrl = data.logo
+      
+      // Handle logo upload if a new file is selected
+      if (data.logoFile) {
+        try {
+          logoUrl = await uploadLogo(data.logoFile, user.id)
+        } catch (error) {
+          console.error("Failed to upload logo:", error)
+          toast({
+            title: "Error",
+            description: "Failed to upload logo. Please try again.",
+            variant: "destructive",
+          })
+          setIsSaving(false)
+          return
+        }
+      }
+      
+      // Prepare business data
+      const businessData = {
+        business_name: data.businessName,
+        email: data.email,
+        phone: data.phone || undefined,
+        address: data.address || undefined,
+        tax_id: data.taxId || undefined,
+        default_tax_rate: data.defaultTaxRate || 0,
+        currency: data.currency,
+        date_format: data.dateFormat,
+        logo_url: logoUrl || undefined,
+      }
+      
+      // Save business data
+      await upsertBusiness(user.id, businessData)
+      
+      toast({
+        title: "Success",
+        description: "Business settings saved successfully.",
+      })
+      
+    } catch (error) {
+      console.error("Failed to save business settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save business settings. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -164,8 +256,16 @@ export default function SettingsPage() {
 
         {/* Business Settings */}
         <TabsContent value="business" className="mt-4 space-y-6">
-          <Form {...businessForm}>
-            <form onSubmit={businessForm.handleSubmit(onSubmit)} className="space-y-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                Loading business settings...
+              </div>
+            </div>
+          ) : (
+            <Form {...businessForm}>
+              <form onSubmit={businessForm.handleSubmit(onSubmit)} className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Business Information</CardTitle>
@@ -225,6 +325,10 @@ export default function SettingsPage() {
                                 return
                               }
 
+                              // Store the file for upload
+                              businessForm.setValue("logoFile", file)
+                              
+                              // Show preview
                               const reader = new FileReader()
                               reader.onload = (e) => {
                                 businessForm.setValue("logo", e.target?.result as string)
@@ -399,6 +503,7 @@ export default function SettingsPage() {
               </Card>
             </form>
           </Form>
+          )}
         </TabsContent>
 
         {/* Account Settings */}
