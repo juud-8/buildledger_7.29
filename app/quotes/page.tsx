@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Send, FileText, Loader2 } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Send, FileText, Loader2, Download } from "lucide-react"
 import { useAuth } from "@/components/auth-status"
 import { listQuotes } from "@/lib/db/quotes"
 import { useToast } from "@/hooks/use-toast"
@@ -46,6 +46,8 @@ export default function QuotesPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null)
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchQuotes() {
@@ -74,6 +76,83 @@ export default function QuotesPage() {
 
     fetchQuotes()
   }, [user, toast])
+
+  // Generate PDF function
+  const handleGeneratePDF = async (quoteId: string) => {
+    try {
+      setGeneratingPDF(quoteId)
+      const response = await fetch(`/api/pdf/quote?id=${quoteId}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "PDF generated successfully",
+        })
+        // Refresh quotes to get updated PDF URL
+        const quotesData = await listQuotes(user!)
+        setQuotes(quotesData)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to generate PDF",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingPDF(null)
+    }
+  }
+
+  // Send email function
+  const handleSendEmail = async (quoteId: string) => {
+    try {
+      setSendingEmail(quoteId)
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'quote',
+          id: quoteId,
+        }),
+      })
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Quote sent successfully",
+        })
+        // Refresh quotes to get updated status
+        const quotesData = await listQuotes(user!)
+        setQuotes(quotesData)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send quote",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error sending quote:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send quote",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingEmail(null)
+    }
+  }
 
   if (!user) {
     return (
@@ -217,13 +296,25 @@ export default function QuotesPage() {
                           <Pencil className="mr-2 h-4 w-4" />
                           <span>Edit</span>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGeneratePDF(quote.id)} disabled={generatingPDF === quote.id}>
+                          {generatingPDF === quote.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="mr-2 h-4 w-4" />
+                          )}
+                          <span>{generatingPDF === quote.id ? 'Generating...' : 'Generate PDF'}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSendEmail(quote.id)} disabled={sendingEmail === quote.id}>
+                          {sendingEmail === quote.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="mr-2 h-4 w-4" />
+                          )}
+                          <span>{sendingEmail === quote.id ? 'Sending...' : 'Send'}</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           <FileText className="mr-2 h-4 w-4" />
                           <span>Convert to Invoice</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Send className="mr-2 h-4 w-4" />
-                          <span>Resend</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-red-500 focus:text-red-500">
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -274,8 +365,29 @@ export default function QuotesPage() {
                 <Button variant="outline" size="sm" onClick={() => router.push(`/quotes/edit/${quote.id}`)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleGeneratePDF(quote.id)}
+                  disabled={generatingPDF === quote.id}
+                >
+                  {generatingPDF === quote.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleSendEmail(quote.id)}
+                  disabled={sendingEmail === quote.id}
+                >
+                  {sendingEmail === quote.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button variant="outline" size="sm" className="text-red-500">
                   <Trash2 className="h-4 w-4" />
