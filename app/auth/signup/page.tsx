@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Define the form schema with validation
 const formSchema = z
@@ -24,6 +25,7 @@ const formSchema = z
       message: "Password must be at least 8 characters.",
     }),
     confirmPassword: z.string(),
+    fullName: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
@@ -37,6 +39,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const { signUp } = useAuth()
 
@@ -47,20 +50,22 @@ export default function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      fullName: "",
     },
   })
 
   // Handle form submission
   async function onSubmit(data: FormValues) {
     setIsLoading(true)
+    setError(null)
 
     try {
       // Use the auth context to sign up
-      await signUp(data.email, data.password, data.email.split("@")[0])
+      await signUp(data.email, data.password, data.fullName)
       router.push("/dashboard")
     } catch (error) {
       console.error("Signup failed:", error)
-      // Handle signup error
+      setError(error instanceof Error ? error.message : "Signup failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -74,8 +79,33 @@ export default function SignupPage() {
           <CardDescription className="text-center">Enter your details to create your account</CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert className="mb-4 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="John Doe"
+                        type="text"
+                        autoComplete="name"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"

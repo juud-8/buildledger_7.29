@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { ArrowLeft, Send } from "lucide-react"
+import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,8 @@ type FormValues = z.infer<typeof formSchema>
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createSupabaseBrowserClient()
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -37,19 +40,20 @@ export default function ForgotPasswordPage() {
   // Handle form submission
   async function onSubmit(data: FormValues) {
     setIsLoading(true)
+    setError(null)
 
     try {
-      // Here you would typically send a password reset email
-      console.log("Reset password for:", data.email)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+      
+      if (error) throw error
 
       // Show success message
       setIsSubmitted(true)
     } catch (error) {
       console.error("Password reset request failed:", error)
-      // Handle error
+      setError(error instanceof Error ? error.message : "Failed to send reset email. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -65,6 +69,11 @@ export default function ForgotPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert className="mb-4 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
           {isSubmitted ? (
             <Alert className="bg-primary/10 border-primary/20">
               <AlertTitle className="text-primary">Check your email</AlertTitle>
