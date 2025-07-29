@@ -1,13 +1,16 @@
 import Stripe from 'stripe'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set in environment variables')
+// Only throw error if we're not in build time and the key is missing
+if (!process.env.STRIPE_SECRET_KEY && process.env.NODE_ENV !== 'production' && typeof window === 'undefined') {
+  console.warn('STRIPE_SECRET_KEY is not set in environment variables')
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia',
-  typescript: true,
-})
+export const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-12-18.acacia',
+      typescript: true,
+    })
+  : null
 
 export interface CreatePaymentLinkParams {
   invoiceId: string;
@@ -28,6 +31,10 @@ export async function createPaymentLink({
   successUrl,
   cancelUrl
 }: CreatePaymentLinkParams) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -63,6 +70,10 @@ export async function createPaymentLink({
 }
 
 export async function getPaymentSession(sessionId: string) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     return await stripe.checkout.sessions.retrieve(sessionId);
   } catch (error) {
@@ -72,6 +83,10 @@ export async function getPaymentSession(sessionId: string) {
 }
 
 export async function createCustomer(email: string, name?: string) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     return await stripe.customers.create({
       email,

@@ -1,6 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: "Authentication - TradeTab",
   description: "Login or sign up for TradeTab",
@@ -11,5 +13,5 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <div className="min-h-screen bg-background">{children}</div>
+  return children
 }

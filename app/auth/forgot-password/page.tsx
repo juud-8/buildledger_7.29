@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -27,7 +27,14 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createSupabaseBrowserClient()
+  const [supabase, setSupabase] = useState<any>(null)
+
+  // Initialize Supabase client only on the client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSupabase(createSupabaseBrowserClient())
+    }
+  }, [])
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -39,6 +46,11 @@ export default function ForgotPasswordPage() {
 
   // Handle form submission
   async function onSubmit(data: FormValues) {
+    if (!supabase) {
+      setError("Supabase client not initialized")
+      return
+    }
+    
     setIsLoading(true)
     setError(null)
 
