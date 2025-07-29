@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import Image from "next/image"
-import { Upload, X } from "lucide-react"
+import { Upload, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -69,19 +69,33 @@ const defaultValues: Partial<BusinessFormValues> = {
 
 export default function BusinessInformationPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(defaultValues.businessLogo || null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessFormSchema),
     defaultValues,
   })
 
-  function onSubmit(data: BusinessFormValues) {
-    // In a real app, you would send this data to your API
-    console.log(data)
-    toast({
-      title: "Business information updated",
-      description: "Your business information has been updated successfully.",
-    })
+  async function onSubmit(data: BusinessFormValues) {
+    setIsSubmitting(true)
+    
+    try {
+      // In a real app, you would send this data to your API
+      console.log(data)
+      toast({
+        title: "Business information updated",
+        description: "Your business information has been updated successfully.",
+      })
+    } catch (error) {
+      console.error("Failed to update business information:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update business information",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,7 +354,16 @@ export default function BusinessInformationPage() {
             />
           </div>
 
-          <Button type="submit">Save Changes</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
+          </Button>
         </form>
       </Form>
     </div>

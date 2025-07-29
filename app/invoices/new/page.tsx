@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Trash2, Plus } from "lucide-react"
+import { CalendarIcon, Trash2, Plus, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-status"
 import { createInvoice } from "@/lib/db/invoices"
+import { useToast } from "@/hooks/use-toast"
 
 // Define the form schema
 const formSchema = z.object({
@@ -33,11 +34,11 @@ const formSchema = z.object({
   items: z.array(
     z.object({
       description: z.string().min(1, { message: "Description is required" }),
-      quantity: z.number().min(1, { message: "Quantity must be at least 1" }),
-      unitPrice: z.number().min(0, { message: "Unit price must be at least 0" }),
+      quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1" }),
+      unitPrice: z.coerce.number().min(0, { message: "Unit price must be at least 0" }),
     }),
   ),
-  taxRate: z.number().min(0).max(100),
+  taxRate: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
   paymentMethods: z.object({
     zelle: z.boolean().default(false),
@@ -52,6 +53,7 @@ type FormValues = z.infer<typeof formSchema>
 export default function NewInvoicePage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -121,7 +123,11 @@ export default function NewInvoicePage() {
   // Handle form submission
   async function onSubmit(data: FormValues) {
     if (!user) {
-      console.error("No user found")
+      toast({
+        title: "Error",
+        description: "You must be logged in to create an invoice.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -145,10 +151,20 @@ export default function NewInvoicePage() {
       }
 
       await createInvoice(invoiceData, user)
+      
+      toast({
+        title: "Success",
+        description: "Invoice created successfully!",
+      })
+      
       router.push("/invoices")
     } catch (error) {
       console.error("Failed to create invoice:", error)
-      // You might want to show a toast notification here
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create invoice",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -477,11 +493,23 @@ export default function NewInvoicePage() {
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router.push("/invoices")}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => router.push("/invoices")}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Save Invoice"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Save Invoice"
+              )}
             </Button>
           </div>
         </form>

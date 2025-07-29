@@ -1,16 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2 } from "lucide-react"
+
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, Send } from "lucide-react"
 import { useAuth } from "@/components/auth-status"
 import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
 import type { Invoice } from "@/lib/db/invoices"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, CreditCard } from "lucide-react"
+import { useAuth } from "@/components/auth-status"
+import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
+import type { Invoice } from "@/lib/db/invoices"
+import { useRealtimeSubscriptions } from "@/hooks/use-realtime-subscriptions"
+import { useToast } from "@/hooks/use-toast"
+
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -49,31 +58,75 @@ const getStatusBadgeVariant = (status: string) => {
 export default function InvoicesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
-  // Fetch invoices
-  useEffect(() => {
-    async function fetchInvoices() {
-      if (!user) return
+  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null)
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
+  const [creatingPaymentLink, setCreatingPaymentLink] = useState<string | null>(null)
 
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await listInvoices(user)
-        setInvoices(data || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch invoices")
-      } finally {
-        setLoading(false)
-      }
+
+  // Function to fetch invoices
+  const fetchInvoices = useCallback(async () => {
+    if (!user) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await listInvoices(user)
+      setInvoices(data || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch invoices")
+    } finally {
+      setLoading(false)
     }
-
-    fetchInvoices()
   }, [user])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchInvoices()
+  }, [fetchInvoices])
+
+  // Real-time subscription handlers
+  const handleInvoiceInsert = useCallback((payload: any) => {
+    const newInvoice = payload.new
+    setInvoices(prev => [newInvoice, ...prev])
+    toast({
+      title: "Invoice Created",
+      description: `Invoice ${newInvoice.number} has been created.`,
+    })
+  }, [toast])
+
+  const handleInvoiceUpdate = useCallback((payload: any) => {
+    const updatedInvoice = payload.new
+    setInvoices(prev => prev.map(invoice => 
+      invoice.id === updatedInvoice.id ? updatedInvoice : invoice
+    ))
+    toast({
+      title: "Invoice Updated",
+      description: `Invoice ${updatedInvoice.number} has been updated.`,
+    })
+  }, [toast])
+
+  const handleInvoiceDelete = useCallback((payload: any) => {
+    const deletedInvoice = payload.old
+    setInvoices(prev => prev.filter(invoice => invoice.id !== deletedInvoice.id))
+    toast({
+      title: "Invoice Deleted",
+      description: `Invoice ${deletedInvoice.number} has been deleted.`,
+    })
+  }, [toast])
+
+  // Set up real-time subscriptions
+  useRealtimeSubscriptions(user, {
+    onInvoiceInsert: handleInvoiceInsert,
+    onInvoiceUpdate: handleInvoiceUpdate,
+    onInvoiceDelete: handleInvoiceDelete,
+  })
 
   // Handle invoice deletion
   const handleDeleteInvoice = async (id: string) => {
@@ -85,11 +138,131 @@ export default function InvoicesPage() {
 
     try {
       await deleteInvoice(id, user)
-      // Remove the invoice from the local state
-      setInvoices(invoices.filter(invoice => invoice.id !== id))
+      // The real-time subscription will handle updating the local state
     } catch (err) {
       console.error("Failed to delete invoice:", err)
-      // You might want to show a toast notification here
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle payment link creation
+  const handleCreatePaymentLink = async (invoiceId: string) => {
+    if (!user) return
+
+    try {
+      setCreatingPaymentLink(invoiceId)
+      
+      const response = await fetch('/api/payments/create-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoice_id: invoiceId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment link')
+      }
+
+      const { payment_link } = await response.json()
+      
+      // Open the payment link in a new tab
+      window.open(payment_link, '_blank')
+      
+      // Update the invoice in local state to include the payment link
+      setInvoices(invoices.map(invoice => 
+        invoice.id === invoiceId 
+          ? { ...invoice, stripe_payment_link: payment_link }
+          : invoice
+      ))
+
+      toast.success('Payment link created successfully!')
+    } catch (error) {
+      console.error('Error creating payment link:', error)
+      toast.error('Failed to create payment link')
+    } finally {
+      setCreatingPaymentLink(null)
+    }
+  }
+
+  // Generate PDF function
+  const handleGeneratePDF = async (invoiceId: string) => {
+    try {
+      setGeneratingPDF(invoiceId)
+      const response = await fetch(`/api/pdf/invoice?id=${invoiceId}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "PDF generated successfully",
+        })
+        // Refresh invoices to get updated PDF URL
+        const invoicesData = await listInvoices(user!)
+        setInvoices(invoicesData || [])
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to generate PDF",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingPDF(null)
+    }
+  }
+
+  // Send email function
+  const handleSendEmail = async (invoiceId: string) => {
+    try {
+      setSendingEmail(invoiceId)
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'invoice',
+          id: invoiceId,
+        }),
+      })
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Invoice sent successfully",
+        })
+        // Refresh invoices to get updated status
+        const invoicesData = await listInvoices(user!)
+        setInvoices(invoicesData || [])
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send invoice",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error sending invoice:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send invoice",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingEmail(null)
     }
   }
 
@@ -263,6 +436,34 @@ export default function InvoicesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </DropdownMenuItem>
+
+                            <DropdownMenuItem onClick={() => handleGeneratePDF(invoice.id)} disabled={generatingPDF === invoice.id}>
+                              {generatingPDF === invoice.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                              )}
+                              <span>{generatingPDF === invoice.id ? 'Generating...' : 'Generate PDF'}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSendEmail(invoice.id)} disabled={sendingEmail === invoice.id}>
+                              {sendingEmail === invoice.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="mr-2 h-4 w-4" />
+                              )}
+                              <span>{sendingEmail === invoice.id ? 'Sending...' : 'Send'}</span>
+
+                            {invoice.balance_due > 0 && (
+                              <DropdownMenuItem 
+                                onClick={() => handleCreatePaymentLink(invoice.id)}
+                                disabled={creatingPaymentLink === invoice.id}
+                              >
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                <span>
+                                  {creatingPaymentLink === invoice.id ? 'Creating...' : 'Pay'}
+                                </span>
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem>
                               <Download className="mr-2 h-4 w-4" />
                               <span>Download PDF</span>
@@ -315,6 +516,40 @@ export default function InvoicesPage() {
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => router.push(`/invoices/edit/${invoice.id}`)}>
                     <Pencil className="h-4 w-4" />
+                  </Button>
+                  {invoice.balance_due > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleCreatePaymentLink(invoice.id)}
+                      disabled={creatingPaymentLink === invoice.id}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleGeneratePDF(invoice.id)}
+                    disabled={generatingPDF === invoice.id}
+                  >
+                    {generatingPDF === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleSendEmail(invoice.id)}
+                    disabled={sendingEmail === invoice.id}
+                  >
+                    {sendingEmail === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                   </Button>
                   <Button 
                     variant="outline" 
