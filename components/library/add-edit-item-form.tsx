@@ -3,12 +3,15 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 // Define form schema with validation
 const formSchema = z.object({
@@ -40,6 +43,9 @@ interface AddEditItemFormProps {
 }
 
 export function AddEditItemForm({ item, onClose }: AddEditItemFormProps) {
+  const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
   // Initialize form with default values or existing item values
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,12 +58,30 @@ export function AddEditItemForm({ item, onClose }: AddEditItemFormProps) {
   })
 
   // Handle form submission
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Here you would typically save the data to your backend
-    console.log(values)
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true)
+    
+    try {
+      // Here you would typically save the data to your backend
+      console.log(values)
 
-    // Close the dialog after submission
-    onClose()
+      toast({
+        title: "Success",
+        description: item ? "Item updated successfully!" : "Item added successfully!",
+      })
+
+      // Close the dialog after submission
+      onClose()
+    } catch (error) {
+      console.error("Failed to save item:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save item",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Common units for construction
@@ -163,10 +187,19 @@ export function AddEditItemForm({ item, onClose }: AddEditItemFormProps) {
         />
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">{item ? "Save Changes" : "Add Item"}</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {item ? "Saving..." : "Adding..."}
+              </>
+            ) : (
+              item ? "Save Changes" : "Add Item"
+            )}
+          </Button>
         </div>
       </form>
     </Form>
