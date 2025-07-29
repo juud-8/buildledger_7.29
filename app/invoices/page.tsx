@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, Send } from "lucide-react"
+import { useAuth } from "@/components/auth-status"
+import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
+import type { Invoice } from "@/lib/db/invoices"
+import { useToast } from "@/hooks/use-toast"
 import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, CreditCard } from "lucide-react"
 import { useAuth } from "@/components/auth-status"
 import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
@@ -58,7 +64,11 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+
+  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null)
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
   const [creatingPaymentLink, setCreatingPaymentLink] = useState<string | null>(null)
+
 
   // Function to fetch invoices
   const fetchInvoices = useCallback(async () => {
@@ -176,6 +186,83 @@ export default function InvoicesPage() {
       toast.error('Failed to create payment link')
     } finally {
       setCreatingPaymentLink(null)
+    }
+  }
+
+  // Generate PDF function
+  const handleGeneratePDF = async (invoiceId: string) => {
+    try {
+      setGeneratingPDF(invoiceId)
+      const response = await fetch(`/api/pdf/invoice?id=${invoiceId}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "PDF generated successfully",
+        })
+        // Refresh invoices to get updated PDF URL
+        const invoicesData = await listInvoices(user!)
+        setInvoices(invoicesData || [])
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to generate PDF",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingPDF(null)
+    }
+  }
+
+  // Send email function
+  const handleSendEmail = async (invoiceId: string) => {
+    try {
+      setSendingEmail(invoiceId)
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'invoice',
+          id: invoiceId,
+        }),
+      })
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Invoice sent successfully",
+        })
+        // Refresh invoices to get updated status
+        const invoicesData = await listInvoices(user!)
+        setInvoices(invoicesData || [])
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send invoice",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error sending invoice:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send invoice",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingEmail(null)
     }
   }
 
@@ -349,6 +436,23 @@ export default function InvoicesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </DropdownMenuItem>
+
+                            <DropdownMenuItem onClick={() => handleGeneratePDF(invoice.id)} disabled={generatingPDF === invoice.id}>
+                              {generatingPDF === invoice.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                              )}
+                              <span>{generatingPDF === invoice.id ? 'Generating...' : 'Generate PDF'}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSendEmail(invoice.id)} disabled={sendingEmail === invoice.id}>
+                              {sendingEmail === invoice.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="mr-2 h-4 w-4" />
+                              )}
+                              <span>{sendingEmail === invoice.id ? 'Sending...' : 'Send'}</span>
+
                             {invoice.balance_due > 0 && (
                               <DropdownMenuItem 
                                 onClick={() => handleCreatePaymentLink(invoice.id)}
@@ -423,6 +527,30 @@ export default function InvoicesPage() {
                       <CreditCard className="h-4 w-4" />
                     </Button>
                   )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleGeneratePDF(invoice.id)}
+                    disabled={generatingPDF === invoice.id}
+                  >
+                    {generatingPDF === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleSendEmail(invoice.id)}
+                    disabled={sendingEmail === invoice.id}
+                  >
+                    {sendingEmail === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
