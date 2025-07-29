@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Send, FileText, Load
 import { useAuth } from "@/components/auth-status"
 import { listQuotes } from "@/lib/db/quotes"
 import { useToast } from "@/hooks/use-toast"
+import { useRealtimeSubscriptions } from "@/hooks/use-realtime-subscriptions"
 
 // Types for quotes from database
 interface QuoteListItem {
@@ -47,33 +48,72 @@ export default function QuotesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchQuotes() {
-      if (!user) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        setIsLoading(true)
-        setError(null)
-        const quotesData = await listQuotes(user)
-        setQuotes(quotesData)
-      } catch (err) {
-        console.error("Failed to fetch quotes:", err)
-        setError(err instanceof Error ? err.message : "Failed to fetch quotes")
-        toast({
-          title: "Error",
-          description: "Failed to load quotes",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
+  // Function to fetch quotes
+  const fetchQuotes = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false)
+      return
     }
 
-    fetchQuotes()
+    try {
+      setIsLoading(true)
+      setError(null)
+      const quotesData = await listQuotes(user)
+      setQuotes(quotesData)
+    } catch (err) {
+      console.error("Failed to fetch quotes:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch quotes")
+      toast({
+        title: "Error",
+        description: "Failed to load quotes",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }, [user, toast])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchQuotes()
+  }, [fetchQuotes])
+
+  // Real-time subscription handlers
+  const handleQuoteInsert = useCallback((payload: any) => {
+    const newQuote = payload.new
+    setQuotes(prev => [newQuote, ...prev])
+    toast({
+      title: "Quote Created",
+      description: `Quote ${newQuote.number} has been created.`,
+    })
+  }, [toast])
+
+  const handleQuoteUpdate = useCallback((payload: any) => {
+    const updatedQuote = payload.new
+    setQuotes(prev => prev.map(quote => 
+      quote.id === updatedQuote.id ? updatedQuote : quote
+    ))
+    toast({
+      title: "Quote Updated",
+      description: `Quote ${updatedQuote.number} has been updated.`,
+    })
+  }, [toast])
+
+  const handleQuoteDelete = useCallback((payload: any) => {
+    const deletedQuote = payload.old
+    setQuotes(prev => prev.filter(quote => quote.id !== deletedQuote.id))
+    toast({
+      title: "Quote Deleted",
+      description: `Quote ${deletedQuote.number} has been deleted.`,
+    })
+  }, [toast])
+
+  // Set up real-time subscriptions
+  useRealtimeSubscriptions(user, {
+    onQuoteInsert: handleQuoteInsert,
+    onQuoteUpdate: handleQuoteUpdate,
+    onQuoteDelete: handleQuoteDelete,
+  })
 
   if (!user) {
     return (

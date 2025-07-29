@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,9 @@ import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, C
 import { useAuth } from "@/components/auth-status"
 import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
 import type { Invoice } from "@/lib/db/invoices"
-import { toast } from "sonner"
+import { useRealtimeSubscriptions } from "@/hooks/use-realtime-subscriptions"
+import { useToast } from "@/hooks/use-toast"
+
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -50,6 +52,7 @@ const getStatusBadgeVariant = (status: string) => {
 export default function InvoicesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,25 +60,63 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [creatingPaymentLink, setCreatingPaymentLink] = useState<string | null>(null)
 
-  // Fetch invoices
-  useEffect(() => {
-    async function fetchInvoices() {
-      if (!user) return
+  // Function to fetch invoices
+  const fetchInvoices = useCallback(async () => {
+    if (!user) return
 
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await listInvoices(user)
-        setInvoices(data || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch invoices")
-      } finally {
-        setLoading(false)
-      }
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await listInvoices(user)
+      setInvoices(data || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch invoices")
+    } finally {
+      setLoading(false)
     }
-
-    fetchInvoices()
   }, [user])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchInvoices()
+  }, [fetchInvoices])
+
+  // Real-time subscription handlers
+  const handleInvoiceInsert = useCallback((payload: any) => {
+    const newInvoice = payload.new
+    setInvoices(prev => [newInvoice, ...prev])
+    toast({
+      title: "Invoice Created",
+      description: `Invoice ${newInvoice.number} has been created.`,
+    })
+  }, [toast])
+
+  const handleInvoiceUpdate = useCallback((payload: any) => {
+    const updatedInvoice = payload.new
+    setInvoices(prev => prev.map(invoice => 
+      invoice.id === updatedInvoice.id ? updatedInvoice : invoice
+    ))
+    toast({
+      title: "Invoice Updated",
+      description: `Invoice ${updatedInvoice.number} has been updated.`,
+    })
+  }, [toast])
+
+  const handleInvoiceDelete = useCallback((payload: any) => {
+    const deletedInvoice = payload.old
+    setInvoices(prev => prev.filter(invoice => invoice.id !== deletedInvoice.id))
+    toast({
+      title: "Invoice Deleted",
+      description: `Invoice ${deletedInvoice.number} has been deleted.`,
+    })
+  }, [toast])
+
+  // Set up real-time subscriptions
+  useRealtimeSubscriptions(user, {
+    onInvoiceInsert: handleInvoiceInsert,
+    onInvoiceUpdate: handleInvoiceUpdate,
+    onInvoiceDelete: handleInvoiceDelete,
+  })
 
   // Handle invoice deletion
   const handleDeleteInvoice = async (id: string) => {
@@ -87,11 +128,14 @@ export default function InvoicesPage() {
 
     try {
       await deleteInvoice(id, user)
-      // Remove the invoice from the local state
-      setInvoices(invoices.filter(invoice => invoice.id !== id))
+      // The real-time subscription will handle updating the local state
     } catch (err) {
       console.error("Failed to delete invoice:", err)
-      // You might want to show a toast notification here
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice",
+        variant: "destructive",
+      })
     }
   }
 
