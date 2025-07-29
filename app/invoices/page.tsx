@@ -170,10 +170,17 @@ export default function InvoicesPage() {
           : invoice
       ))
 
-      toast.success('Payment link created successfully!')
+      toast({
+        title: "Payment Link Created",
+        description: "Payment link created successfully!",
+      })
     } catch (error) {
       console.error('Error creating payment link:', error)
-      toast.error('Failed to create payment link')
+      toast({
+        title: "Error",
+        description: "Failed to create payment link",
+        variant: "destructive",
+      })
     } finally {
       setCreatingPaymentLink(null)
     }
