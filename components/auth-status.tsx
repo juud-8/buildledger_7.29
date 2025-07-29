@@ -1,54 +1,58 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-
-type User = {
-  id: string
-  name: string
-  email: string
-} | null
+import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+import type { User } from "@supabase/supabase-js"
 
 type AuthContextType = {
-  user: User
+  user: User | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, name: string) => Promise<void>
+  signUp: (email: string, password: string, fullName?: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const supabase = createSupabaseBrowserClient()
 
-  // This would normally check for an existing session on load
   useEffect(() => {
-    // Simulate checking auth state
-    const checkAuth = async () => {
+    // Get initial session
+    const getSession = async () => {
       try {
-        // This would normally call your auth service
-        // For demo, we'll just set loading to false
-        setIsLoading(false)
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
       } catch (error) {
-        console.error("Auth check failed:", error)
+        console.error("Error getting session:", error)
+      } finally {
         setIsLoading(false)
       }
     }
 
-    checkAuth()
-  }, [])
+    getSession()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null)
+        setIsLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
   const signIn = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      // This would normally call your auth service
-      // For demo, we'll just set a mock user
-      setUser({
-        id: "1",
-        name: "Jeff Doht",
-        email: email,
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
+      if (error) throw error
     } catch (error) {
       console.error("Sign in failed:", error)
       throw error
@@ -57,16 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, fullName?: string) => {
     setIsLoading(true)
     try {
-      // This would normally call your auth service
-      // For demo, we'll just set a mock user
-      setUser({
-        id: "1",
-        name: name,
-        email: email,
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: fullName ? { full_name: fullName } : undefined,
+        },
       })
+      if (error) throw error
     } catch (error) {
       console.error("Sign up failed:", error)
       throw error
@@ -78,8 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setIsLoading(true)
     try {
-      // This would normally call your auth service
-      setUser(null)
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
     } catch (error) {
       console.error("Sign out failed:", error)
       throw error

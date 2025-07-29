@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { signIn } = useAuth()
 
   // Initialize the form
@@ -44,6 +46,7 @@ export default function LoginPage() {
   // Handle form submission
   async function onSubmit(data: FormValues) {
     setIsLoading(true)
+    setError(null)
 
     try {
       // Use the auth context to sign in
@@ -51,7 +54,7 @@ export default function LoginPage() {
       router.push("/dashboard")
     } catch (error) {
       console.error("Login failed:", error)
-      // Handle login error
+      setError(error instanceof Error ? error.message : "Login failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -67,6 +70,11 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert className="mb-4 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
