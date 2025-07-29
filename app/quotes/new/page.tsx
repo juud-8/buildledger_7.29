@@ -16,6 +16,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth-status"
+import { createQuote } from "@/lib/db/quotes"
+import { useToast } from "@/hooks/use-toast"
 
 // Define the form schema
 const formSchema = z.object({
@@ -43,7 +46,10 @@ type FormValues = z.infer<typeof formSchema>
 
 export default function NewQuotePage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { toast } = useToast()
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -105,11 +111,46 @@ export default function NewQuotePage() {
   }
 
   // Handle form submission
-  function onSubmit(data: FormValues, action: "send" | "draft") {
-    console.log(data, action)
-    // Here you would typically save the quote to your database
-    // Then redirect to the quotes list
-    router.push("/quotes")
+  async function onSubmit(data: FormValues, action: "send" | "draft") {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a quote.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      await createQuote({
+        client_name: data.clientName,
+        client_email: data.clientEmail,
+        quote_date: format(data.quoteDate, 'yyyy-MM-dd'),
+        expiry_date: format(data.expiryDate, 'yyyy-MM-dd'),
+        items: data.items,
+        tax_rate: data.taxRate,
+        notes: data.notes,
+        terms_and_conditions: data.termsAndConditions,
+      }, user)
+
+      toast({
+        title: "Success",
+        description: "Quote created successfully!",
+      })
+      
+      router.push("/quotes")
+    } catch (error) {
+      console.error("Failed to create quote:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create quote",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Format currency
@@ -391,20 +432,21 @@ export default function NewQuotePage() {
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router.push("/quotes")}>
+            <Button type="button" variant="outline" onClick={() => router.push("/quotes")} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => form.handleSubmit((data) => onSubmit(data, "draft"))()}
+              disabled={isSubmitting}
             >
               <Save className="mr-2 h-4 w-4" />
               Save as Draft
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={isSubmitting}>
               <Send className="mr-2 h-4 w-4" />
-              Send Quote
+              {isSubmitting ? "Creating..." : "Send Quote"}
             </Button>
           </div>
         </form>
