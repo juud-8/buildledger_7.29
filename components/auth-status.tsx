@@ -17,9 +17,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createSupabaseBrowserClient()
+  const [supabase, setSupabase] = useState<any>(null)
 
   useEffect(() => {
+    // Initialize Supabase client only on the client side
+    if (typeof window !== 'undefined') {
+      setSupabase(createSupabaseBrowserClient())
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) return
+
     // Get initial session
     const getSession = async () => {
       try {
@@ -43,9 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [supabase])
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) throw new Error('Supabase client not initialized')
     setIsLoading(true)
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -62,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, fullName?: string) => {
+    if (!supabase) throw new Error('Supabase client not initialized')
     setIsLoading(true)
     try {
       const { error } = await supabase.auth.signUp({
@@ -81,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    if (!supabase) throw new Error('Supabase client not initialized')
     setIsLoading(true)
     try {
       const { error } = await supabase.auth.signOut()

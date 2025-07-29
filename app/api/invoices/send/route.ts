@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendInvoiceEmail } from '@/lib/resend';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createSupabaseApiClient } from '@/lib/supabase/api';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +12,8 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = createSupabaseApiClient();
 
     // Fetch invoice data
     const { data: invoice, error: invoiceError } = await supabase
