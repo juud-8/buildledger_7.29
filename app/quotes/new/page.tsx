@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Trash2, Plus, Send, Save } from "lucide-react"
+import { CalendarIcon, Trash2, Plus, Send, Save, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,11 +33,11 @@ const formSchema = z.object({
   items: z.array(
     z.object({
       description: z.string().min(1, { message: "Description is required" }),
-      quantity: z.number().min(1, { message: "Quantity must be at least 1" }),
-      unitPrice: z.number().min(0, { message: "Unit price must be at least 0" }),
+      quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1" }),
+      unitPrice: z.coerce.number().min(0, { message: "Unit price must be at least 0" }),
     }),
   ),
-  taxRate: z.number().min(0).max(100),
+  taxRate: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
   termsAndConditions: z.string().optional(),
 })
@@ -441,12 +441,30 @@ export default function NewQuotePage() {
               onClick={() => form.handleSubmit((data) => onSubmit(data, "draft"))()}
               disabled={isSubmitting}
             >
-              <Save className="mr-2 h-4 w-4" />
-              Save as Draft
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save as Draft
+                </>
+              )}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              <Send className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Creating..." : "Send Quote"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Quote
+                </>
+              )}
             </Button>
           </div>
         </form>

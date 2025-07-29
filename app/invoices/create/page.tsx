@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Trash2, Plus, Save, X } from "lucide-react"
+import { CalendarIcon, Trash2, Plus, Save, X, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
+import { useToast } from "@/hooks/use-toast"
 
 // Define the form schema
 const formSchema = z.object({
@@ -32,11 +33,11 @@ const formSchema = z.object({
   items: z.array(
     z.object({
       description: z.string().min(1, { message: "Description is required" }),
-      quantity: z.number().min(1, { message: "Quantity must be at least 1" }),
-      unitPrice: z.number().min(0, { message: "Unit price must be at least 0" }),
+      quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1" }),
+      unitPrice: z.coerce.number().min(0, { message: "Unit price must be at least 0" }),
     }),
   ),
-  taxRate: z.number().min(0).max(100),
+  taxRate: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
   paymentMethods: z.object({
     zelle: z.boolean().default(false),
@@ -50,7 +51,9 @@ type FormValues = z.infer<typeof formSchema>
 
 export default function CreateInvoicePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -116,11 +119,30 @@ export default function CreateInvoicePage() {
   }
 
   // Handle form submission
-  function onSubmit(data: FormValues) {
-    console.log(data)
-    // Here you would typically save the invoice to your database
-    // Then redirect to the invoices list
-    router.push("/invoices")
+  async function onSubmit(data: FormValues) {
+    setIsSubmitting(true)
+    
+    try {
+      console.log(data)
+      // Here you would typically save the invoice to your database
+      // Then redirect to the invoices list
+      
+      toast({
+        title: "Success",
+        description: "Invoice created successfully!",
+      })
+      
+      router.push("/invoices")
+    } catch (error) {
+      console.error("Failed to create invoice:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create invoice",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Format currency
@@ -550,13 +572,28 @@ export default function CreateInvoicePage() {
 
           {/* Form Actions */}
           <div className="flex flex-col sm:flex-row gap-4 justify-end">
-            <Button type="button" variant="outline" className="sm:order-1" onClick={() => router.push("/invoices")}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="sm:order-1" 
+              onClick={() => router.push("/invoices")}
+              disabled={isSubmitting}
+            >
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
-            <Button type="submit" className="sm:order-2">
-              <Save className="mr-2 h-4 w-4" />
-              Create Invoice
+            <Button type="submit" className="sm:order-2" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Create Invoice
+                </>
+              )}
             </Button>
           </div>
         </form>

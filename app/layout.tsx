@@ -3,6 +3,8 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { AuthProvider } from '@/components/auth-status'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -27,9 +29,12 @@ html {
         `}</style>
       </head>
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ErrorBoundary>
+        <Toaster />
       </body>
     </html>
   )

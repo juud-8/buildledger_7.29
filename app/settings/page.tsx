@@ -7,7 +7,8 @@ import * as z from "zod"
 import { Save, Upload } from "lucide-react"
 import { useAuth } from "@/components/auth-status"
 import { useToast } from "@/hooks/use-toast"
-import { getBusinessForUser, upsertBusiness, uploadLogo } from "@/lib/db/business"
+import { getBusinessForUser, upsertBusiness, uploadLogo } from "@/lib/db/business
+
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 // Define the form schemas
 const businessFormSchema = z.object({
@@ -171,6 +173,22 @@ export default function SettingsPage() {
     setIsSaving(true)
     
     try {
+
+      console.log("Form data:", data)
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      toast({
+        title: "Settings updated",
+        description: "Your settings have been updated successfully.",
+      })
+    } catch (error) {
+      console.error("Failed to update settings:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update settings",
+
       let logoUrl = data.logo
       
       // Handle logo upload if a new file is selected
@@ -470,15 +488,15 @@ export default function SettingsPage() {
                 <CardFooter className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     {isSaving ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saving...
-                      </span>
+                      </>
                     ) : (
-                      <span className="flex items-center gap-2">
-                        <Save className="h-4 w-4" />
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
                         Save Changes
-                      </span>
+                      </>
                     )}
                   </Button>
                 </CardFooter>
@@ -580,15 +598,15 @@ export default function SettingsPage() {
                 <CardFooter className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     {isSaving ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saving...
-                      </span>
+                      </>
                     ) : (
-                      <span className="flex items-center gap-2">
-                        <Save className="h-4 w-4" />
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
                         Save Changes
-                      </span>
+                      </>
                     )}
                   </Button>
                 </CardFooter>
@@ -769,15 +787,15 @@ export default function SettingsPage() {
                 <CardFooter className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     {isSaving ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saving...
-                      </span>
+                      </>
                     ) : (
-                      <span className="flex items-center gap-2">
-                        <Save className="h-4 w-4" />
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
                         Save Changes
-                      </span>
+                      </>
                     )}
                   </Button>
                 </CardFooter>
