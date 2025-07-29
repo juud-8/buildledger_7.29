@@ -8,18 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, Send } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, Send, CreditCard } from "lucide-react"
 import { useAuth } from "@/components/auth-status"
 import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
 import type { Invoice } from "@/lib/db/invoices"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Download, Loader2, CreditCard } from "lucide-react"
-import { useAuth } from "@/components/auth-status"
-import { listInvoices, deleteInvoice } from "@/lib/db/invoices"
-import type { Invoice } from "@/lib/db/invoices"
-import { useRealtimeSubscriptions } from "@/hooks/use-realtime-subscriptions"
-import { useToast } from "@/hooks/use-toast"
-
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -69,7 +62,6 @@ export default function InvoicesPage() {
   const [sendingEmail, setSendingEmail] = useState<string | null>(null)
   const [creatingPaymentLink, setCreatingPaymentLink] = useState<string | null>(null)
 
-
   // Function to fetch invoices
   const fetchInvoices = useCallback(async () => {
     if (!user) return
@@ -91,43 +83,6 @@ export default function InvoicesPage() {
     fetchInvoices()
   }, [fetchInvoices])
 
-  // Real-time subscription handlers
-  const handleInvoiceInsert = useCallback((payload: any) => {
-    const newInvoice = payload.new
-    setInvoices(prev => [newInvoice, ...prev])
-    toast({
-      title: "Invoice Created",
-      description: `Invoice ${newInvoice.number} has been created.`,
-    })
-  }, [toast])
-
-  const handleInvoiceUpdate = useCallback((payload: any) => {
-    const updatedInvoice = payload.new
-    setInvoices(prev => prev.map(invoice => 
-      invoice.id === updatedInvoice.id ? updatedInvoice : invoice
-    ))
-    toast({
-      title: "Invoice Updated",
-      description: `Invoice ${updatedInvoice.number} has been updated.`,
-    })
-  }, [toast])
-
-  const handleInvoiceDelete = useCallback((payload: any) => {
-    const deletedInvoice = payload.old
-    setInvoices(prev => prev.filter(invoice => invoice.id !== deletedInvoice.id))
-    toast({
-      title: "Invoice Deleted",
-      description: `Invoice ${deletedInvoice.number} has been deleted.`,
-    })
-  }, [toast])
-
-  // Set up real-time subscriptions
-  useRealtimeSubscriptions(user, {
-    onInvoiceInsert: handleInvoiceInsert,
-    onInvoiceUpdate: handleInvoiceUpdate,
-    onInvoiceDelete: handleInvoiceDelete,
-  })
-
   // Handle invoice deletion
   const handleDeleteInvoice = async (id: string) => {
     if (!user) return
@@ -138,7 +93,8 @@ export default function InvoicesPage() {
 
     try {
       await deleteInvoice(id, user)
-      // The real-time subscription will handle updating the local state
+      // Refresh the invoices list
+      fetchInvoices()
     } catch (err) {
       console.error("Failed to delete invoice:", err)
       toast({
@@ -173,17 +129,17 @@ export default function InvoicesPage() {
       // Open the payment link in a new tab
       window.open(payment_link, '_blank')
       
-      // Update the invoice in local state to include the payment link
-      setInvoices(invoices.map(invoice => 
-        invoice.id === invoiceId 
-          ? { ...invoice, stripe_payment_link: payment_link }
-          : invoice
-      ))
-
-      toast.success('Payment link created successfully!')
+      toast({
+        title: "Success",
+        description: "Payment link created successfully!",
+      })
     } catch (error) {
       console.error('Error creating payment link:', error)
-      toast.error('Failed to create payment link')
+      toast({
+        title: "Error",
+        description: "Failed to create payment link",
+        variant: "destructive",
+      })
     } finally {
       setCreatingPaymentLink(null)
     }
@@ -201,9 +157,6 @@ export default function InvoicesPage() {
           title: "Success",
           description: "PDF generated successfully",
         })
-        // Refresh invoices to get updated PDF URL
-        const invoicesData = await listInvoices(user!)
-        setInvoices(invoicesData || [])
       } else {
         toast({
           title: "Error",
@@ -244,9 +197,6 @@ export default function InvoicesPage() {
           title: "Success",
           description: "Invoice sent successfully",
         })
-        // Refresh invoices to get updated status
-        const invoicesData = await listInvoices(user!)
-        setInvoices(invoicesData || [])
       } else {
         toast({
           title: "Error",
@@ -377,27 +327,23 @@ export default function InvoicesPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <p className="text-muted-foreground mb-4">
-                  {invoices.length === 0 ? "No invoices found. Create your first invoice to get started." : "No invoices match your search criteria."}
+                  No invoices found. Create your first invoice to get started.
                 </p>
-                {invoices.length === 0 && (
-                  <Button onClick={() => router.push("/invoices/new")}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Invoice
-                  </Button>
-                )}
+                <Button onClick={() => router.push("/invoices/new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Invoice
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="rounded-md border border-border">
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Invoice #</TableHead>
-                    <TableHead className="hidden md:table-cell">Client</TableHead>
-                    <TableHead className="hidden sm:table-cell">Date</TableHead>
-                    <TableHead className="hidden lg:table-cell">Due Date</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead className="hidden md:table-cell">Balance Due</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -406,11 +352,9 @@ export default function InvoicesPage() {
                   {filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.number}</TableCell>
-                      <TableCell className="hidden md:table-cell">{invoice.client_name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{formatDate(invoice.invoice_date)}</TableCell>
-                      <TableCell className="hidden lg:table-cell">{formatDate(invoice.due_date)}</TableCell>
+                      <TableCell>{invoice.client_name}</TableCell>
+                      <TableCell>{formatDate(invoice.invoice_date)}</TableCell>
                       <TableCell>{formatCurrency(invoice.total)}</TableCell>
-                      <TableCell className="hidden md:table-cell">{formatCurrency(invoice.balance_due)}</TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -422,9 +366,9 @@ export default function InvoicesPage() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button variant="ghost" className="h-8 w-8 p-0">
                               <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -436,39 +380,38 @@ export default function InvoicesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </DropdownMenuItem>
-
-                            <DropdownMenuItem onClick={() => handleGeneratePDF(invoice.id)} disabled={generatingPDF === invoice.id}>
+                            {invoice.balance_due > 0 && (
+                              <DropdownMenuItem
+                                onClick={() => handleCreatePaymentLink(invoice.id)}
+                                disabled={creatingPaymentLink === invoice.id}
+                              >
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                <span>Create Payment Link</span>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleGeneratePDF(invoice.id)}
+                              disabled={generatingPDF === invoice.id}
+                            >
                               {generatingPDF === invoice.id ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               ) : (
                                 <Download className="mr-2 h-4 w-4" />
                               )}
-                              <span>{generatingPDF === invoice.id ? 'Generating...' : 'Generate PDF'}</span>
+                              <span>Generate PDF</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSendEmail(invoice.id)} disabled={sendingEmail === invoice.id}>
+                            <DropdownMenuItem
+                              onClick={() => handleSendEmail(invoice.id)}
+                              disabled={sendingEmail === invoice.id}
+                            >
                               {sendingEmail === invoice.id ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               ) : (
                                 <Send className="mr-2 h-4 w-4" />
                               )}
-                              <span>{sendingEmail === invoice.id ? 'Sending...' : 'Send'}</span>
-
-                            {invoice.balance_due > 0 && (
-                              <DropdownMenuItem 
-                                onClick={() => handleCreatePaymentLink(invoice.id)}
-                                disabled={creatingPaymentLink === invoice.id}
-                              >
-                                <CreditCard className="mr-2 h-4 w-4" />
-                                <span>
-                                  {creatingPaymentLink === invoice.id ? 'Creating...' : 'Pay'}
-                                </span>
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              <span>Download PDF</span>
+                              <span>Send Email</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-red-500 focus:text-red-500"
                               onClick={() => handleDeleteInvoice(invoice.id)}
                             >
@@ -484,85 +427,6 @@ export default function InvoicesPage() {
               </Table>
             </div>
           )}
-
-          {/* Mobile View - Only visible on very small screens */}
-          <div className="sm:hidden space-y-4 mt-4">
-            <h2 className="text-sm font-medium text-muted-foreground">Mobile View</h2>
-            {filteredInvoices.map((invoice) => (
-              <div key={invoice.id} className="rounded-lg border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{invoice.number}</div>
-                  <Badge
-                    variant="outline"
-                    className={getStatusBadgeVariant(invoice.status)}
-                  >
-                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                  </Badge>
-                </div>
-                <div className="text-sm text-muted-foreground">{invoice.client_name}</div>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Date: </span>
-                    {formatDate(invoice.invoice_date)}
-                  </div>
-                  <div className="font-medium">{formatCurrency(invoice.total)}</div>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Balance Due: {formatCurrency(invoice.balance_due)}
-                </div>
-                <div className="flex items-center justify-end space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => router.push(`/invoices/${invoice.id}`)}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => router.push(`/invoices/edit/${invoice.id}`)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  {invoice.balance_due > 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleCreatePaymentLink(invoice.id)}
-                      disabled={creatingPaymentLink === invoice.id}
-                    >
-                      <CreditCard className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleGeneratePDF(invoice.id)}
-                    disabled={generatingPDF === invoice.id}
-                  >
-                    {generatingPDF === invoice.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleSendEmail(invoice.id)}
-                    disabled={sendingEmail === invoice.id}
-                  >
-                    {sendingEmail === invoice.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-red-500"
-                    onClick={() => handleDeleteInvoice(invoice.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
         </>
       )}
     </div>
