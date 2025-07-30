@@ -12,12 +12,28 @@ export default function BrandingPage() {
   const [businessName, setBusinessName] = useState("BuildLedger")
   const [primaryColor, setPrimaryColor] = useState("#3b82f6")
 
-  // Mock function to handle logo upload
+  // Handle logo upload using the API
   const handleLogoSave = async (file: File) => {
-    // Simulate API call
-    console.log("Uploading logo:", file.name)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    console.log("Logo uploaded successfully")
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/upload/logo', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to upload logo')
+      }
+      
+      const result = await response.json()
+      console.log("Logo uploaded successfully:", result.logo_url)
+    } catch (error) {
+      console.error("Failed to upload logo:", error)
+      throw error
+    }
   }
 
   // Mock function to save branding settings

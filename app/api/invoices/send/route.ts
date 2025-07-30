@@ -5,6 +5,7 @@ import { sendInvoiceEmail } from "@/lib/resend";
 import { getInvoice } from "@/lib/db/invoices";
 import { generateInvoicePDF } from "@/lib/pdf-generator";
 import { logger } from "@/lib/logger";
+import { uploadPdfAndGetSignedUrl } from "@/lib/storage";
 
 const SendInvoiceSchema = z.object({
   type: z.enum(["invoice", "quote"]),
@@ -86,31 +87,16 @@ export async function POST(req: NextRequest) {
         });
       }
       
-      // Upload and persist PDF URL
-      const fileName = `${type}s/${id}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('docs')
-        .upload(fileName, pdfBuffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
+      // Upload and persist PDF URL with user ID prefix
+      const { key, signedUrl } = await uploadPdfAndGetSignedUrl(user.id, id, pdfBuffer);
 
-      if (uploadError) {
-        logger.error('Error uploading PDF', { error: uploadError, id, type });
-        return NextResponse.json({ error: 'Failed to upload PDF' }, { status: 500 });
-      }
-
-      // Get signed URL
-      const { data: signedUrlData } = await supabase.storage
-        .from('docs')
-        .createSignedUrl(fileName, 60 * 60 * 24 * 7); // 7 days expiry
-
-      // Update record with PDF URL
+      // Update record with PDF key and signed URL
       const tableName = type === "invoice" ? "invoices" : "quotes";
       const { error: updateError } = await supabase
         .from(tableName)
         .update({ 
-          pdf_url: signedUrlData?.signedUrl || fileName,
+          pdf_key: key,
+          pdf_url: signedUrl,
           updated_at: new Date().toISOString()
         })
         .eq("id", id)

@@ -5,6 +5,7 @@ import { generateQuotePDF } from '@/lib/pdf-generator'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getQuote } from '@/lib/db/quotes'
 import { logger } from '@/lib/logger'
+import { uploadPdfAndGetSignedUrl } from '@/lib/storage'
 
 // Zod schema for query validation
 const QuoteIdSchema = z.object({
@@ -77,30 +78,15 @@ export async function GET(request: NextRequest) {
     // Generate PDF buffer
     const pdfBuffer = await renderToBuffer(generateQuotePDF(pdfData))
 
-    // Upload to Supabase Storage
-    const fileName = `quotes/${quoteId}.pdf`
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('docs')
-      .upload(fileName, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      })
+    // Upload to Supabase Storage with user ID prefix and get signed URL
+    const { key, signedUrl } = await uploadPdfAndGetSignedUrl(user.id, quoteId, pdfBuffer)
 
-    if (uploadError) {
-      logger.error('Error uploading PDF', { error: uploadError, quoteId })
-      return NextResponse.json({ error: 'Failed to upload PDF' }, { status: 500 })
-    }
-
-    // Get signed URL for the uploaded file
-    const { data: signedUrlData } = await supabase.storage
-      .from('docs')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 7) // 7 days expiry
-
-    // Update quote with PDF URL
+    // Update quote with PDF key and signed URL
     const { error: updateError } = await supabase
       .from('quotes')
       .update({ 
-        pdf_url: signedUrlData?.signedUrl || fileName,
+        pdf_key: key,
+        pdf_url: signedUrl,
         updated_at: new Date().toISOString()
       })
       .eq('id', quoteId)
@@ -112,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      pdf_url: signedUrlData?.signedUrl || fileName,
+      pdf_url: signedUrl,
       message: 'PDF generated and uploaded successfully' 
     })
 

@@ -13,12 +13,12 @@ The following dependencies have been added to the project:
 
 You need to create the following storage buckets in your Supabase project:
 
-### 1. `docs` bucket (Private)
+### 1. `pdfs` bucket (Private)
 - **Purpose**: Store generated PDFs for quotes and invoices
 - **Public**: `false` (private access only)
 - **Structure**:
-  - `quotes/{quote_id}.pdf`
-  - `invoices/{invoice_id}.pdf`
+  - `{user_id}/invoice-{invoice_id}.pdf`
+  - `{user_id}/quote-{quote_id}.pdf`
 
 ### 2. `logos` bucket (Public)
 - **Purpose**: Store company logos and branding assets
@@ -44,11 +44,13 @@ The following columns need to be added to your database tables:
 
 ### Quotes Table
 ```sql
+ALTER TABLE quotes ADD COLUMN pdf_key TEXT;
 ALTER TABLE quotes ADD COLUMN pdf_url TEXT;
 ```
 
 ### Invoices Table
 ```sql
+ALTER TABLE invoices ADD COLUMN pdf_key TEXT;
 ALTER TABLE invoices ADD COLUMN pdf_url TEXT;
 ```
 
@@ -59,7 +61,10 @@ ALTER TABLE invoices ADD COLUMN pdf_url TEXT;
 - `GET /api/pdf/invoice?id={invoice_id}` - Generate PDF for an invoice
 
 ### Email Sending
-- `POST /api/send` - Send quote or invoice via email
+- `POST /api/invoices/send` - Send quote or invoice via email
+
+### Logo Upload
+- `POST /api/upload/logo` - Upload business logo
 
 ## UI Updates
 
@@ -91,6 +96,13 @@ ALTER TABLE invoices ADD COLUMN pdf_url TEXT;
 - Handles both quotes and invoices
 - Uses Resend for reliable email delivery
 
+### Logo Upload
+- Uploads logos with user ID prefix for security
+- Stores logos in public bucket for easy access
+- Updates business record with logo URL
+- Supports PNG, JPG, and SVG formats
+- Validates file size (max 2MB)
+
 ## Usage
 
 1. **Generate PDF**: Click the "Generate PDF" button on any quote or invoice
@@ -106,7 +118,8 @@ ALTER TABLE invoices ADD COLUMN pdf_url TEXT;
 
 ## Security
 
-- All PDFs are stored in private storage buckets
-- Signed URLs with 7-day expiry for secure access
+- All PDFs are stored in private storage buckets with user ID prefixes
+- Signed URLs with 1-hour expiry for secure access
 - User authentication required for all operations
 - Proper authorization checks for data access
+- RLS policies ensure users can only access their own files

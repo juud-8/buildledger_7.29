@@ -1,33 +1,6 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 
-export async function uploadLogo(file: File, userId: string): Promise<string> {
-  const supabase = createSupabaseBrowserClient()
-  
-  // Generate unique filename
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${userId}-${Date.now()}.${fileExt}`
-  
-  // Upload file to Supabase Storage
-  const { data, error } = await supabase.storage
-    .from('logos')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false
-    })
-
-  if (error) {
-    throw new Error(`Failed to upload logo: ${error.message}`)
-  }
-
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
-    .from('logos')
-    .getPublicUrl(fileName)
-
-  return publicUrl
-}
-
 export interface Business {
   id: string
   user_id: string
