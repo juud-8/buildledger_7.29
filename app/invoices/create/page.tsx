@@ -276,7 +276,7 @@ export default function CreateInvoicePage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle>Invoice Items</CardTitle>
-                  <CardDescription>Add the products or services you're invoicing for</CardDescription>
+                  <CardDescription>Add the products or services you&apos;re invoicing for</CardDescription>
                 </div>
                 <Button type="button" onClick={addItem} className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
