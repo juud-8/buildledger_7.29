@@ -309,245 +309,245 @@ export default function SettingsPage() {
           ) : (
             <Form {...businessForm}>
               <form onSubmit={businessForm.handleSubmit(onBusinessSubmit)} className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Information</CardTitle>
-                  <CardDescription>
-                    Update your business details that will appear on your invoices and quotes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Logo Upload Section */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="businessLogo">Business Logo</Label>
-                      {businessForm.getValues("logo") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => businessForm.setValue("logo", "")}
-                          className="h-8 text-xs"
-                        >
-                          Remove Logo
-                        </Button>
-                      )}
-                    </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Business Information</CardTitle>
+                    <CardDescription>
+                      Update your business details that will appear on your invoices and quotes
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Logo Upload Section */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="businessLogo">Business Logo</Label>
+                        {businessForm.getValues("logo") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => businessForm.setValue("logo", "")}
+                            className="h-8 text-xs"
+                          >
+                            Remove Logo
+                          </Button>
+                        )}
+                      </div>
 
-                    {businessForm.getValues("logo") ? (
-                      <div className="relative w-full max-w-xs mx-auto">
-                        <div className="w-full h-32 border border-border rounded-md overflow-hidden flex items-center justify-center bg-card">
-                          <Image
-                            src={
-                              businessForm.getValues("logo") ||
-                              "/placeholder.svg?height=128&width=256&query=your+logo+here"
-                            }
-                            alt="Business Logo"
-                            width={256}
-                            height={128}
-                            className="max-w-full max-h-full object-contain p-2"
+                      {businessForm.getValues("logo") ? (
+                        <div className="relative w-full max-w-xs mx-auto">
+                          <div className="w-full h-32 border border-border rounded-md overflow-hidden flex items-center justify-center bg-card">
+                            <Image
+                              src={
+                                businessForm.getValues("logo") ||
+                                "/placeholder.svg?height=128&width=256&query=your+logo+here"
+                              }
+                              alt="Business Logo"
+                              width={256}
+                              height={128}
+                              className="max-w-full max-h-full object-contain p-2"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="w-full max-w-xs mx-auto h-32 border-2 border-dashed border-border rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                          onClick={() => document.getElementById("logo-upload")?.click()}
+                        >
+                          <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                          <p className="text-sm font-medium">Click to upload your logo</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, or SVG (max 2MB)</p>
+                          <input
+                            id="logo-upload"
+                            type="file"
+                            className="hidden"
+                            accept="image/png,image/jpeg,image/svg+xml"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                // Validate file size (max 2MB)
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert("File size should be less than 2MB")
+                                  return
+                                }
+
+                                // Store the file for upload
+                                businessForm.setValue("logoFile", file)
+                                
+                                // Show preview
+                                const reader = new FileReader()
+                                reader.onload = (e) => {
+                                  businessForm.setValue("logo", e.target?.result as string)
+                                }
+                                reader.readAsDataURL(file)
+                              }
+                            }}
                           />
                         </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="w-full max-w-xs mx-auto h-32 border-2 border-dashed border-border rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
-                        onClick={() => document.getElementById("logo-upload")?.click()}
-                      >
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-sm font-medium">Click to upload your logo</p>
-                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, or SVG (max 2MB)</p>
-                        <input
-                          id="logo-upload"
-                          type="file"
-                          className="hidden"
-                          accept="image/png,image/jpeg,image/svg+xml"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) {
-                              // Validate file size (max 2MB)
-                              if (file.size > 2 * 1024 * 1024) {
-                                alert("File size should be less than 2MB")
-                                return
-                              }
-
-                              // Store the file for upload
-                              businessForm.setValue("logoFile", file)
-                              
-                              // Show preview
-                              const reader = new FileReader()
-                              reader.onload = (e) => {
-                                businessForm.setValue("logo", e.target?.result as string)
-                              }
-                              reader.readAsDataURL(file)
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground text-center">
-                      Your logo will appear on all invoices and quotes you send to clients
-                    </p>
-                  </div>
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <FormField
-                      control={businessForm.control}
-                      name="businessName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
                       )}
-                    />
-                    <FormField
-                      control={businessForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Email</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Your logo will appear on all invoices and quotes you send to clients
+                      </p>
+                    </div>
 
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <FormField
-                      control={businessForm.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={businessForm.control}
-                      name="taxId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax ID / EIN</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={businessForm.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Address</FormLabel>
-                        <FormControl>
-                          <Textarea className="min-h-[80px]" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice & Quote Settings</CardTitle>
-                  <CardDescription>Configure default settings for your invoices and quotes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid gap-6 md:grid-cols-3">
-                    <FormField
-                      control={businessForm.control}
-                      name="defaultTaxRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Tax Rate (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="0" max="100" step="0.1" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={businessForm.control}
-                      name="currency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <FormField
+                        control={businessForm.control}
+                        name="businessName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Name</FormLabel>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select currency" />
-                              </SelectTrigger>
+                              <Input {...field} />
                             </FormControl>
-                            <SelectContent>
-                              <SelectItem value="USD">USD - US Dollar</SelectItem>
-                              <SelectItem value="EUR">EUR - Euro</SelectItem>
-                              <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                              <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={businessForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <FormField
+                        control={businessForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={businessForm.control}
+                        name="taxId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tax ID / EIN</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <FormField
                       control={businessForm.control}
-                      name="dateFormat"
+                      name="address"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date Format</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select date format" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                              <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                              <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormLabel>Business Address</FormLabel>
+                          <FormControl>
+                            <Textarea className="min-h-[80px]" {...field} />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </form>
-          </Form>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Invoice & Quote Settings</CardTitle>
+                    <CardDescription>Configure default settings for your invoices and quotes</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-6 md:grid-cols-3">
+                      <FormField
+                        control={businessForm.control}
+                        name="defaultTaxRate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Tax Rate (%)</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="0" max="100" step="0.1" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={businessForm.control}
+                        name="currency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Currency</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="USD">USD - US Dollar</SelectItem>
+                                <SelectItem value="EUR">EUR - Euro</SelectItem>
+                                <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                                <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={businessForm.control}
+                        name="dateFormat"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date Format</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select date format" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                                <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                                <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-end">
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </form>
+            </Form>
           )}
         </TabsContent>
 
