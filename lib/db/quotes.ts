@@ -23,6 +23,8 @@ export interface Quote {
   total: number
   notes?: string
   terms_and_conditions?: string
+  pdf_key?: string
+  pdf_url?: string
   created_at: string
   updated_at: string
 }

@@ -8,7 +8,7 @@ import { Save, Upload, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/components/auth-status"
 import { useToast } from "@/hooks/use-toast"
-import { getBusinessForUser, upsertBusiness, uploadLogo } from "@/lib/db/business"
+import { getBusinessForUser, upsertBusiness } from "@/lib/db/business"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -179,7 +179,21 @@ export default function SettingsPage() {
       // Handle logo upload if a new file is selected
       if (data.logoFile) {
         try {
-          logoUrl = await uploadLogo(data.logoFile, user.id)
+          const formData = new FormData()
+          formData.append('file', data.logoFile)
+          
+          const response = await fetch('/api/upload/logo', {
+            method: 'POST',
+            body: formData,
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to upload logo')
+          }
+          
+          const result = await response.json()
+          logoUrl = result.logo_url
         } catch (error) {
           console.error("Failed to upload logo:", error)
           toast({

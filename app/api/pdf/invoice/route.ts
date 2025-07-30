@@ -5,6 +5,7 @@ import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getInvoice } from '@/lib/db/invoices'
 import { logger } from '@/lib/logger'
+import { uploadPdfAndGetSignedUrl } from '@/lib/storage'
 
 // Zod schema for query validation
 const InvoiceIdSchema = z.object({
@@ -76,30 +77,15 @@ export async function GET(request: NextRequest) {
     // Generate PDF buffer
     const pdfBuffer = await renderToBuffer(generateInvoicePDF(pdfData))
 
-    // Upload to Supabase Storage
-    const fileName = `invoices/${invoiceId}.pdf`
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('docs')
-      .upload(fileName, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      })
+    // Upload to Supabase Storage with user ID prefix and get signed URL
+    const { key, signedUrl } = await uploadPdfAndGetSignedUrl(user.id, invoiceId, pdfBuffer)
 
-    if (uploadError) {
-      logger.error('Error uploading PDF', { error: uploadError, invoiceId })
-      return NextResponse.json({ error: 'Failed to upload PDF' }, { status: 500 })
-    }
-
-    // Get signed URL for the uploaded file
-    const { data: signedUrlData } = await supabase.storage
-      .from('docs')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 7) // 7 days expiry
-
-    // Update invoice with PDF URL
+    // Update invoice with PDF key and signed URL
     const { error: updateError } = await supabase
       .from('invoices')
       .update({ 
-        pdf_url: signedUrlData?.signedUrl || fileName,
+        pdf_key: key,
+        pdf_url: signedUrl,
         updated_at: new Date().toISOString()
       })
       .eq('id', invoiceId)
@@ -111,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      pdf_url: signedUrlData?.signedUrl || fileName,
+      pdf_url: signedUrl,
       message: 'PDF generated and uploaded successfully' 
     })
 

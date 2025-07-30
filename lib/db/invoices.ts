@@ -24,6 +24,8 @@ export interface Invoice {
   balance_due: number
   notes?: string
   stripe_payment_link?: string
+  pdf_key?: string
+  pdf_url?: string
   payment_methods?: {
     zelle?: boolean
     venmo?: boolean
