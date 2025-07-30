@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createPaymentLink } from "@/lib/stripe";
 import { getInvoice } from "@/lib/db/invoices";
+import { logger } from "@/lib/logger";
 
 // Zod schema for request validation
 const paymentLinkSchema = z.object({
@@ -69,13 +70,13 @@ export async function POST(req: NextRequest) {
       .from("invoices")
       .update({
         stripe_session_id: paymentLink.sessionId,
-        payment_link: paymentLink.url,
+        stripe_payment_link: paymentLink.url,
       })
       .eq("id", invoiceId)
       .eq("user_id", user.id); // Double-check ownership
 
     if (updateError) {
-      console.error("Error updating invoice:", updateError);
+      logger.error("Error updating invoice with payment link", { error: updateError, invoiceId });
       return NextResponse.json(
         { error: "Failed to update invoice with payment link" },
         { status: 500 }
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
       sessionId: paymentLink.sessionId,
     });
   } catch (error) {
-    console.error("Error creating payment link:", error);
+    logger.error("Error creating payment link", { error, invoiceId });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

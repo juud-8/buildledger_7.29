@@ -1,17 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getInvoice } from '@/lib/db/invoices'
+import { logger } from '@/lib/logger'
+
+// Zod schema for query validation
+const InvoiceIdSchema = z.object({
+  id: z.string().uuid("Invalid invoice ID format"),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) {
-      return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
+    // Validate query parameter
+    const parsed = InvoiceIdSchema.safeParse({ id })
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid request data",
+          details: parsed.error.errors,
+        },
+        { status: 400 }
+      )
     }
+
+    const { id: invoiceId } = parsed.data
 
     // Create Supabase server client
     const supabase = await createSupabaseServerClient()
@@ -23,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch invoice data with items
-    const invoice = await getInvoice(id, user)
+    const invoice = await getInvoice(invoiceId, user)
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
@@ -32,11 +50,11 @@ export async function GET(request: NextRequest) {
     const { data: items, error: itemsError } = await supabase
       .from('invoice_items')
       .select('*')
-      .eq('invoice_id', id)
+      .eq('invoice_id', invoiceId)
       .order('created_at')
 
     if (itemsError) {
-      console.error('Error fetching invoice items:', itemsError)
+      logger.error('Error fetching invoice items', { error: itemsError, invoiceId })
       return NextResponse.json({ error: 'Failed to fetch invoice items' }, { status: 500 })
     }
 
@@ -59,7 +77,7 @@ export async function GET(request: NextRequest) {
     const pdfBuffer = await renderToBuffer(generateInvoicePDF(pdfData))
 
     // Upload to Supabase Storage
-    const fileName = `invoices/${id}.pdf`
+    const fileName = `invoices/${invoiceId}.pdf`
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('docs')
       .upload(fileName, pdfBuffer, {
@@ -68,7 +86,7 @@ export async function GET(request: NextRequest) {
       })
 
     if (uploadError) {
-      console.error('Error uploading PDF:', uploadError)
+      logger.error('Error uploading PDF', { error: uploadError, invoiceId })
       return NextResponse.json({ error: 'Failed to upload PDF' }, { status: 500 })
     }
 
@@ -84,10 +102,10 @@ export async function GET(request: NextRequest) {
         pdf_url: signedUrlData?.signedUrl || fileName,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', invoiceId)
 
     if (updateError) {
-      console.error('Error updating invoice with PDF URL:', updateError)
+      logger.error('Error updating invoice with PDF URL', { error: updateError, invoiceId })
       // Don't fail the request if this fails, just log it
     }
 
@@ -98,7 +116,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error generating invoice PDF:', error)
+    logger.error('Error generating invoice PDF', { error })
     return NextResponse.json(
       { error: 'Internal server error' }, 
       { status: 500 }

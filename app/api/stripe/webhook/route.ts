@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { createPayment, getPaymentByExternalId } from '@/lib/db/payments'
 import { getInvoice, updateInvoice } from '@/lib/db/invoices'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET
     )
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    logger.error('Webhook signature verification failed', { error: err })
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
@@ -48,12 +49,12 @@ export async function POST(request: NextRequest) {
         break
       
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        logger.info(`Unhandled event type: ${event.type}`)
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Error processing webhook:', error)
+    logger.error('Error processing webhook', { error })
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
@@ -64,19 +65,25 @@ export async function POST(request: NextRequest) {
 async function handleCheckoutSessionCompleted(session: any) {
   const supabase = createSupabaseServerClient()
   
-  // Get the invoice ID from metadata
+  // Validate required metadata
   const invoiceId = session.metadata?.invoice_id
   const userId = session.metadata?.user_id
   
   if (!invoiceId || !userId) {
-    console.error('Missing invoice_id or user_id in session metadata')
+    logger.error('Missing required metadata in session', { 
+      sessionId: session.id,
+      metadata: session.metadata 
+    })
     return
   }
 
-  // Check if payment already exists
+  // Check if payment already exists (idempotency)
   const existingPayment = await getPaymentByExternalId(session.payment_intent)
   if (existingPayment) {
-    console.log('Payment already processed:', session.payment_intent)
+    logger.info('Payment already processed, skipping', { 
+      paymentIntent: session.payment_intent,
+      sessionId: session.id 
+    })
     return
   }
 
@@ -90,9 +97,19 @@ async function handleCheckoutSessionCompleted(session: any) {
     status: 'completed'
   })
 
-  // Update invoice status and balance
+  // Update invoice status and balance with ownership verification
   const invoice = await getInvoice(invoiceId, { id: userId } as any)
   if (invoice) {
+    // Verify ownership matches metadata
+    if (invoice.user_id !== userId) {
+      logger.error('Invoice ownership mismatch', { 
+        invoiceId,
+        invoiceUserId: invoice.user_id,
+        metadataUserId: userId 
+      })
+      return
+    }
+    
     const newBalanceDue = Math.max(0, invoice.balance_due - (session.amount_total / 100))
     const newStatus = newBalanceDue === 0 ? 'paid' : 'partial'
     
@@ -105,19 +122,24 @@ async function handleCheckoutSessionCompleted(session: any) {
 
 async function handlePaymentIntentSucceeded(paymentIntent: any) {
   // This is a fallback in case checkout.session.completed doesn't fire
-  // Check if payment already exists
+  // Check if payment already exists (idempotency)
   const existingPayment = await getPaymentByExternalId(paymentIntent.id)
   if (existingPayment) {
-    console.log('Payment already processed:', paymentIntent.id)
+    logger.info('Payment already processed, skipping', { 
+      paymentIntentId: paymentIntent.id 
+    })
     return
   }
 
-  // Try to get invoice info from metadata or description
+  // Validate required metadata
   const invoiceId = paymentIntent.metadata?.invoice_id
   const userId = paymentIntent.metadata?.user_id
   
   if (!invoiceId || !userId) {
-    console.error('Missing invoice_id or user_id in payment intent metadata')
+    logger.error('Missing required metadata in payment intent', { 
+      paymentIntentId: paymentIntent.id,
+      metadata: paymentIntent.metadata 
+    })
     return
   }
 
@@ -131,9 +153,19 @@ async function handlePaymentIntentSucceeded(paymentIntent: any) {
     status: 'completed'
   })
 
-  // Update invoice status and balance
+  // Update invoice status and balance with ownership verification
   const invoice = await getInvoice(invoiceId, { id: userId } as any)
   if (invoice) {
+    // Verify ownership matches metadata
+    if (invoice.user_id !== userId) {
+      logger.error('Invoice ownership mismatch', { 
+        invoiceId,
+        invoiceUserId: invoice.user_id,
+        metadataUserId: userId 
+      })
+      return
+    }
+    
     const newBalanceDue = Math.max(0, invoice.balance_due - (paymentIntent.amount / 100))
     const newStatus = newBalanceDue === 0 ? 'paid' : 'partial'
     
@@ -145,20 +177,27 @@ async function handlePaymentIntentSucceeded(paymentIntent: any) {
 }
 
 async function handlePaymentIntentFailed(paymentIntent: any) {
-  // Create failed payment record
+  // Validate required metadata
   const invoiceId = paymentIntent.metadata?.invoice_id
   const userId = paymentIntent.metadata?.user_id
   
   if (!invoiceId || !userId) {
-    console.error('Missing invoice_id or user_id in payment intent metadata')
+    logger.error('Missing required metadata in payment intent', { 
+      paymentIntentId: paymentIntent.id,
+      metadata: paymentIntent.metadata 
+    })
     return
   }
 
-  // Check if payment already exists
+  // Check if payment already exists (idempotency)
   const existingPayment = await getPaymentByExternalId(paymentIntent.id)
   if (existingPayment) {
     // Update existing payment status
     await updatePaymentStatus(existingPayment.id, 'failed')
+    logger.info('Updated existing payment status to failed', { 
+      paymentId: existingPayment.id,
+      paymentIntentId: paymentIntent.id 
+    })
   } else {
     // Create new failed payment record
     await createPayment({
@@ -168,6 +207,10 @@ async function handlePaymentIntentFailed(paymentIntent: any) {
       method: 'stripe',
       external_id: paymentIntent.id,
       status: 'failed'
+    })
+    logger.info('Created new failed payment record', { 
+      paymentIntentId: paymentIntent.id,
+      invoiceId 
     })
   }
 }

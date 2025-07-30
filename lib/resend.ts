@@ -8,10 +8,14 @@ const resend = process.env.RESEND_API_KEY
 export interface SendInvoiceEmailParams {
   to: string;
   subject: string;
-  invoiceNumber: string;
+  message: string;
+  from: string;
+  replyTo: string;
+  pdfUrl?: string;
+  recordType: 'invoice' | 'quote';
+  recordNumber: string;
   amount: number;
   currency: string;
-  pdfBuffer: Buffer;
   clientName?: string;
   dueDate?: string;
 }
@@ -19,10 +23,14 @@ export interface SendInvoiceEmailParams {
 export async function sendInvoiceEmail({
   to,
   subject,
-  invoiceNumber,
+  message,
+  from,
+  replyTo,
+  pdfUrl,
+  recordType,
+  recordNumber,
   amount,
   currency,
-  pdfBuffer,
   clientName,
   dueDate
 }: SendInvoiceEmailParams) {
@@ -31,27 +39,27 @@ export async function sendInvoiceEmail({
   }
   
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'BuildLedger <noreply@buildledger.pro>',
+    const emailData: any = {
+      from: from,
       to: [to],
       subject: subject,
+      reply_to: replyTo,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Invoice ${invoiceNumber}</h2>
+          <h2 style="color: #333;">${recordType === 'invoice' ? 'Invoice' : 'Quote'} ${recordNumber}</h2>
           ${clientName ? `<p><strong>Client:</strong> ${clientName}</p>` : ''}
           <p><strong>Amount:</strong> ${currency} ${amount.toFixed(2)}</p>
-          ${dueDate ? `<p><strong>Due Date:</strong> ${dueDate}</p>` : ''}
-          <p>Please find your invoice attached.</p>
+          ${dueDate ? `<p><strong>${recordType === 'invoice' ? 'Due Date' : 'Expiry Date'}:</strong> ${dueDate}</p>` : ''}
+          <div style="margin: 20px 0;">
+            ${message}
+          </div>
+          ${pdfUrl ? `<p><a href="${pdfUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View ${recordType === 'invoice' ? 'Invoice' : 'Quote'}</a></p>` : ''}
           <p>Thank you for your business!</p>
         </div>
       `,
-      attachments: [
-        {
-          filename: `invoice-${invoiceNumber}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
-    });
+    };
+
+    const { data, error } = await resend.emails.send(emailData);
 
     if (error) {
       console.error('Error sending email:', error);
