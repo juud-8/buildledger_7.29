@@ -86,14 +86,21 @@ export async function createInvoice(input: CreateInvoiceInput, user: User) {
   const total = subtotal + tax_amount
   const balance_due = total // Initially, balance due equals total
 
-  // Generate invoice number (you might want to implement a more sophisticated numbering system)
-  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`
+  // Generate invoice number using RPC function
+  const { data: invoiceNumber, error: numberError } = await supabase
+    .rpc('next_invoice_number', { p_user_id: user.id })
+  
+  if (numberError) {
+    throw new Error(`Failed to generate invoice number: ${numberError.message}`)
+  }
+  
+  const formattedNumber = `INV-${invoiceNumber}`
 
   // Insert invoice
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
     .insert({
-      number: invoiceNumber,
+      number: formattedNumber,
       user_id: user.id,
       client_name: input.client_name,
       client_email: input.client_email,

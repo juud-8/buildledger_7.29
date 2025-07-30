@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { stripe } from '@/lib/stripe'
 import { getInvoice } from '@/lib/db/invoices'
 import { updateInvoice } from '@/lib/db/invoices'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
+
+// Zod schema for request validation
+const CreateLinkSchema = z.object({
+  invoice_id: z.string().uuid("Invalid invoice ID format"),
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const { invoice_id } = await request.json()
+    const body = await request.json()
+    const parsed = CreateLinkSchema.safeParse(body)
 
-    if (!invoice_id) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'invoice_id is required' },
+        {
+          error: "Invalid request data",
+          details: parsed.error.errors,
+        },
         { status: 400 }
       )
     }
+
+    const { invoice_id } = parsed.data
 
     // Get the current user
     const supabase = createSupabaseServerClient()
@@ -79,7 +92,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error creating payment link:', error)
+    logger.error('Error creating payment link', { error, invoice_id })
     return NextResponse.json(
       { error: 'Failed to create payment link' },
       { status: 500 }

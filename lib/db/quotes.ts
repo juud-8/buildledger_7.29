@@ -66,14 +66,21 @@ export async function createQuote(input: CreateQuoteInput, user: User) {
   const tax_amount = subtotal * (input.tax_rate / 100)
   const total = subtotal + tax_amount
 
-  // Generate quote number (you might want to implement a more sophisticated numbering system)
-  const quoteNumber = `QT-${Date.now().toString().slice(-6)}`
+  // Generate quote number using RPC function
+  const { data: quoteNumber, error: numberError } = await supabase
+    .rpc('next_quote_number', { p_user_id: user.id })
+  
+  if (numberError) {
+    throw new Error(`Failed to generate quote number: ${numberError.message}`)
+  }
+  
+  const formattedNumber = `QT-${quoteNumber}`
 
   // Insert quote
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
     .insert({
-      number: quoteNumber,
+      number: formattedNumber,
       user_id: user.id,
       client_name: input.client_name,
       client_email: input.client_email,
