@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Reset Password</CardTitle>
           <CardDescription className="text-center">
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -90,7 +90,7 @@ export default function ForgotPasswordPage() {
             <Alert className="bg-primary/10 border-primary/20">
               <AlertTitle className="text-primary">Check your email</AlertTitle>
               <AlertDescription>
-                We've sent a password reset link to your email address. Please check your inbox.
+                We&apos;ve sent a password reset link to your email address. Please check your inbox.
               </AlertDescription>
             </Alert>
           ) : (

@@ -72,7 +72,7 @@ export default function BrandingPage() {
           <Card>
             <CardHeader>
               <CardTitle>Logo Preview</CardTitle>
-              <CardDescription>Here's how your logo will appear in different parts of the application</CardDescription>
+              <CardDescription>Here&apos;s how your logo will appear in different parts of the application</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Dashboard Header Preview */}

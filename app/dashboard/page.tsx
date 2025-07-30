@@ -44,7 +44,7 @@ export default function Dashboard() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back. Here's an overview of your business metrics.</p>
+        <p className="text-muted-foreground">Welcome back. Here&apos;s an overview of your business metrics.</p>
       </div>
 
       {/* Summary Cards */}
