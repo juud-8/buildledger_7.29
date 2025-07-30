@@ -1,0 +1,16 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "overrides": [
+    {
+      "files": ["app/api/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [{
+            "name": "@/lib/supabase/api",
+            "message": "Do not use anon client in server routes. Use createSupabaseServerClient."
+          }]
+        }]
+      }
+    }
+  ]
+}

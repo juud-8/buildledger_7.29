@@ -1,3 +1,4 @@
+// WARNING: Browser-only anon client. Do not import in server routes (see ESLint rule).
 import { createClient } from '@supabase/supabase-js'
 
 export const createSupabaseApiClient = () => {
