@@ -1,37 +1,57 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createPaymentLink } from '@/lib/stripe';
-import { createSupabaseApiClient } from '@/lib/supabase/api';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPaymentLink } from "@/lib/stripe";
+import { getInvoice } from "@/lib/db/invoices";
+
+// Zod schema for request validation
+const paymentLinkSchema = z.object({
+  invoiceId: z.string().uuid("Invalid invoice ID format"),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const { invoiceId } = await req.json();
+    // Parse and validate request body
+    const body = await req.json();
+    const parsed = paymentLinkSchema.safeParse(body);
 
-    if (!invoiceId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invoice ID is required' },
+        {
+          error: "Invalid request data",
+          details: parsed.error.errors,
+        },
         { status: 400 }
       );
     }
 
-    const supabase = createSupabaseApiClient();
+    const { invoiceId } = parsed.data;
 
-    // Fetch invoice data
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .select(`
-        *,
-        clients (
-          name,
-          email
-        )
-      `)
-      .eq('id', invoiceId)
-      .single();
+    // Authenticated Supabase client
+    const supabase = createSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (invoiceError || !invoice) {
+    if (userError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Ownership-checked fetch (centralized in lib/db/invoices)
+    const invoice = await getInvoice(invoiceId, user);
+    if (!invoice) {
       return NextResponse.json(
-        { error: 'Invoice not found' },
+        { error: "Invoice not found or access denied" },
         { status: 404 }
+      );
+    }
+
+    // Guard: already paid
+    if (invoice.status === "paid") {
+      return NextResponse.json(
+        { error: "Invoice is already paid" },
+        { status: 400 }
       );
     }
 
@@ -39,30 +59,38 @@ export async function POST(req: NextRequest) {
     const paymentLink = await createPaymentLink({
       invoiceId: invoice.id,
       amount: invoice.total_amount,
-      currency: invoice.currency || 'USD',
+      currency: invoice.currency || "USD",
       description: `Invoice ${invoice.invoice_number}`,
       customerEmail: invoice.clients?.email,
     });
 
     // Update invoice with payment link
-    await supabase
-      .from('invoices')
-      .update({ 
+    const { error: updateError } = await supabase
+      .from("invoices")
+      .update({
         stripe_session_id: paymentLink.sessionId,
-        payment_link: paymentLink.url
+        payment_link: paymentLink.url,
       })
-      .eq('id', invoiceId);
+      .eq("id", invoiceId)
+      .eq("user_id", user.id); // Double-check ownership
 
-    return NextResponse.json({ 
-      success: true, 
+    if (updateError) {
+      console.error("Error updating invoice:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update invoice with payment link" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
       paymentUrl: paymentLink.url,
-      sessionId: paymentLink.sessionId
+      sessionId: paymentLink.sessionId,
     });
-
   } catch (error) {
-    console.error('Error creating payment link:', error);
+    console.error("Error creating payment link:", error);
     return NextResponse.json(
-      { error: 'Failed to create payment link' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

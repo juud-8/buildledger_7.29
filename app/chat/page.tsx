@@ -18,7 +18,7 @@ export default function ChatPage() {
             <ul className="space-y-2">
               <li className="text-sm text-primary hover:underline cursor-pointer">How do I create a new invoice?</li>
               <li className="text-sm text-primary hover:underline cursor-pointer">
-                What's the difference between quotes and invoices?
+                What&apos;s the difference between quotes and invoices?
               </li>
               <li className="text-sm text-primary hover:underline cursor-pointer">How can I track overdue payments?</li>
               <li className="text-sm text-primary hover:underline cursor-pointer">

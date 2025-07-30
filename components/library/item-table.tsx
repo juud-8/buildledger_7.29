@@ -122,7 +122,7 @@ export function ItemTable() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Item</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete "{item.name}"? This action cannot be undone.
+                            Are you sure you want to delete &ldquo;{item.name}&rdquo;? This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
