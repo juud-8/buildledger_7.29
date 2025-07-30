@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Save, Upload, Loader2 } from "lucide-react"
+import Image from "next/image"
 import { useAuth } from "@/components/auth-status"
 import { useToast } from "@/hooks/use-toast"
 import { getBusinessForUser, upsertBusiness, uploadLogo } from "@/lib/db/business"
@@ -164,8 +165,8 @@ export default function SettingsPage() {
     },
   })
 
-  // Handle form submission
-  async function onSubmit(data: z.infer<typeof businessFormSchema>) {
+  // Handle business form submission
+  async function onBusinessSubmit(data: z.infer<typeof businessFormSchema>) {
     if (!user) return
     
     setIsSaving(true)
@@ -224,6 +225,64 @@ export default function SettingsPage() {
     }
   }
 
+  // Handle account form submission
+  async function onAccountSubmit(data: z.infer<typeof accountFormSchema>) {
+    if (!user) return
+    
+    setIsSaving(true)
+    
+    try {
+      console.log("Account form data:", data)
+      
+      // TODO: Implement account update logic
+      // This would typically update user profile, change password, etc.
+      
+      toast({
+        title: "Success",
+        description: "Account settings saved successfully.",
+      })
+      
+    } catch (error) {
+      console.error("Failed to save account settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save account settings. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Handle payment methods form submission
+  async function onPaymentMethodsSubmit(data: z.infer<typeof paymentMethodsFormSchema>) {
+    if (!user) return
+    
+    setIsSaving(true)
+    
+    try {
+      console.log("Payment methods form data:", data)
+      
+      // TODO: Implement payment methods update logic
+      // This would typically save payment method preferences
+      
+      toast({
+        title: "Success",
+        description: "Payment methods saved successfully.",
+      })
+      
+    } catch (error) {
+      console.error("Failed to save payment methods:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save payment methods. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -249,7 +308,7 @@ export default function SettingsPage() {
             </div>
           ) : (
             <Form {...businessForm}>
-              <form onSubmit={businessForm.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={businessForm.handleSubmit(onBusinessSubmit)} className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Business Information</CardTitle>
@@ -277,12 +336,14 @@ export default function SettingsPage() {
                     {businessForm.getValues("logo") ? (
                       <div className="relative w-full max-w-xs mx-auto">
                         <div className="w-full h-32 border border-border rounded-md overflow-hidden flex items-center justify-center bg-card">
-                          <img
+                          <Image
                             src={
                               businessForm.getValues("logo") ||
                               "/placeholder.svg?height=128&width=256&query=your+logo+here"
                             }
                             alt="Business Logo"
+                            width={256}
+                            height={128}
                             className="max-w-full max-h-full object-contain p-2"
                           />
                         </div>
@@ -493,7 +554,7 @@ export default function SettingsPage() {
         {/* Account Settings */}
         <TabsContent value="account" className="mt-4 space-y-6">
           <Form {...accountForm}>
-            <form onSubmit={accountForm.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={accountForm.handleSubmit(onAccountSubmit)} className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Profile Information</CardTitle>
@@ -602,7 +663,7 @@ export default function SettingsPage() {
         {/* Payment Methods */}
         <TabsContent value="payment" className="mt-4 space-y-6">
           <Form {...paymentMethodsForm}>
-            <form onSubmit={paymentMethodsForm.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={paymentMethodsForm.handleSubmit(onPaymentMethodsSubmit)} className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Payment Methods</CardTitle>

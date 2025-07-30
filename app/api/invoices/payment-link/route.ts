@@ -54,3 +54,44 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Create payment link
+    const paymentLink = await createPaymentLink({
+      invoiceId: invoice.id,
+      amount: invoice.total_amount,
+      currency: invoice.currency || "USD",
+      description: `Invoice ${invoice.invoice_number}`,
+      customerEmail: invoice.clients?.email,
+    });
+
+    // Update invoice with payment link
+    const { error: updateError } = await supabase
+      .from("invoices")
+      .update({
+        stripe_session_id: paymentLink.sessionId,
+        payment_link: paymentLink.url,
+      })
+      .eq("id", invoiceId)
+      .eq("user_id", user.id); // Double-check ownership
+
+    if (updateError) {
+      console.error("Error updating invoice:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update invoice with payment link" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      paymentUrl: paymentLink.url,
+      sessionId: paymentLink.sessionId,
+    });
+  } catch (error) {
+    console.error("Error creating payment link:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
